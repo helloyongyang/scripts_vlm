@@ -5,10 +5,7 @@ import json
 from llava.constants import (
     IMAGE_TOKEN_INDEX,
     DEFAULT_IMAGE_TOKEN,
-    DEFAULT_IM_START_TOKEN,
-    DEFAULT_IM_END_TOKEN,
 )
-IMAGE_PLACEHOLDER = "<image-placeholder>"
 
 from llava.conversation import conv_templates, SeparatorStyle
 from llava.model.builder import load_pretrained_model
@@ -69,19 +66,24 @@ def eval_model(args):
         input_ids_old = None
 
         for question_idx, question in enumerate(questions["question"]):
-            qs = DEFAULT_IMAGE_TOKEN + "\n" + question
-
             conv_mode = "llava_v1"
             conv = conv_templates[conv_mode].copy()
+            if question_idx > 0:
+                conv.system = ""
+                qs = question
+            else:
+                qs = DEFAULT_IMAGE_TOKEN + "\n" + question
             conv.append_message(conv.roles[0], qs)
             conv.append_message(conv.roles[1], None)
             prompt = conv.get_prompt()
 
             input_ids_new = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt").unsqueeze(0).cuda()
+            # print(f"input_ids_new: {input_ids_new}, {input_ids_new.shape}")
             if input_ids_old is None:
                 input_ids = input_ids_new
             else:
                 input_ids = torch.cat((input_ids_old, input_ids_new), dim=1)
+            # print(f"input_ids: {input_ids}, {input_ids.shape}")
 
             with torch.inference_mode():
                 output_ids = model.generate(
@@ -95,6 +97,8 @@ def eval_model(args):
                     max_new_tokens=args.max_new_tokens,
                     use_cache=True,
                 )
+                
+                # print(f"output_ids: {output_ids}, {output_ids.shape}")
 
             outputs = tokenizer.batch_decode(output_ids, skip_special_tokens=False)
             
