@@ -45,59 +45,66 @@ def load_images(image_files):
 
 
 def eval_model(args):
-    with open(args.question_file, "r") as f:
-        questions = json.load(f)    
-    print(questions)
-
-    image_files = questions[0]["image"]
-    qs = questions[0]["question"][0]
-
-    disable_torch_init()
     
+    disable_torch_init()
     model_name = get_model_name_from_path(args.model_path)
     tokenizer, model, image_processor, context_len = load_pretrained_model(
         args.model_path, None, model_name, attn_implementation='sdpa'
     )
 
-    qs = DEFAULT_IMAGE_TOKEN + "\n" + qs
+    with open(args.question_file, "r") as f:
+        questions_list = json.load(f)    
 
+    for questions in questions_list:
+        image_files = questions["image"]
 
-    conv_mode = "llava_v1"
-    conv = conv_templates[conv_mode].copy()
-    conv.append_message(conv.roles[0], qs)
-    conv.append_message(conv.roles[1], None)
-    prompt = conv.get_prompt()
+        images = load_images(image_files)
+        image_sizes = [x.size for x in images]
+        images_tensor = process_images(
+            images,
+            image_processor,
+            model.config
+        ).to(model.device, dtype=torch.float16)
+        
+        input_ids_old = None
 
+        for question_idx, question in enumerate(questions["question"]):
+            qs = DEFAULT_IMAGE_TOKEN + "\n" + question
 
-    images = load_images(image_files)
-    image_sizes = [x.size for x in images]
-    images_tensor = process_images(
-        images,
-        image_processor,
-        model.config
-    ).to(model.device, dtype=torch.float16)
+            conv_mode = "llava_v1"
+            conv = conv_templates[conv_mode].copy()
+            conv.append_message(conv.roles[0], qs)
+            conv.append_message(conv.roles[1], None)
+            prompt = conv.get_prompt()
 
-    input_ids = (
-        tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt")
-        .unsqueeze(0)
-        .cuda()
-    )
+            input_ids_new = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt").unsqueeze(0).cuda()
+            if input_ids_old is None:
+                input_ids = input_ids_new
+            else:
+                input_ids = torch.cat((input_ids_old, input_ids_new), dim=1)
 
-    with torch.inference_mode():
-        output_ids = model.generate(
-            input_ids,
-            images=images_tensor,
-            image_sizes=image_sizes,
-            do_sample=False,
-            temperature=0,
-            top_p=None,
-            num_beams=1,
-            max_new_tokens=args.max_new_tokens,
-            use_cache=True,
-        )
+            with torch.inference_mode():
+                output_ids = model.generate(
+                    input_ids,
+                    images=images_tensor,
+                    image_sizes=image_sizes,
+                    do_sample=False,
+                    temperature=0,
+                    top_p=None,
+                    num_beams=1,
+                    max_new_tokens=args.max_new_tokens,
+                    use_cache=True,
+                )
 
-    outputs = tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
-    print(outputs)
+            outputs = tokenizer.batch_decode(output_ids, skip_special_tokens=False)
+            
+            print("--------------------------------")
+            print(f"question_idx: {question_idx}")
+            print(f"question: {question}")
+            print(f"outputs: {outputs}")
+            print("--------------------------------")
+
+            input_ids_old = torch.cat((input_ids, output_ids), dim=1)
 
 
 if __name__ == "__main__":
