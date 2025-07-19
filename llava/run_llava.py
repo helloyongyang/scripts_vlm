@@ -53,7 +53,7 @@ def eval_model(args):
     with open(args.question_file, "r") as f:
         questions_list = json.load(f)    
 
-    for questions in questions_list:
+    for data_idx, questions in enumerate(questions_list):
         image_files = questions["image"]
         image_files = [os.path.join(args.images_dir, image_file) for image_file in image_files]
 
@@ -91,7 +91,6 @@ def eval_model(args):
                     images=images_tensor,
                     image_sizes=image_sizes,
                     do_sample=False,
-                    temperature=0,
                     top_p=None,
                     num_beams=1,
                     max_new_tokens=args.max_new_tokens,
@@ -103,6 +102,7 @@ def eval_model(args):
             outputs = tokenizer.batch_decode(output_ids, skip_special_tokens=False)
             
             print("--------------------------------")
+            print(f"data_idx: {data_idx}")
             print(f"question_idx: {question_idx}")
             print(f"question: {question}")
             print(f"outputs: {outputs}")
