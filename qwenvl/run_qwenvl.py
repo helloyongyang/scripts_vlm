@@ -7,6 +7,7 @@ from qwen_vl_utils import process_vision_info
 import argparse
 import json
 import torch
+import os
 
 
 def eval_model(args):
@@ -23,6 +24,7 @@ def eval_model(args):
 
     for questions in questions_list:
         image_file = questions["image"][0]
+        image_file = os.path.join(args.images_dir, image_file)
 
         input_ids_old = None
 
@@ -93,7 +95,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", type=str, default="facebook/opt-350m")
     parser.add_argument("--question-file", type=str, required=True)
-    parser.add_argument("--max_new_tokens", type=int, default=512)
+    parser.add_argument("--images-dir", type=str, required=True)
+    parser.add_argument("--max_new_tokens", type=int, default=1024)
     args = parser.parse_args()
 
     eval_model(args)
