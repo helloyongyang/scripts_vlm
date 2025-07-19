@@ -1,6 +1,6 @@
 [
     {
-        "image": ["/data/nvme1/yongyang/projects/llmc_plus/new/scripts_vlm/imgs/dog.jpg"],
+        "image": ["dog.jpg"],
         "question": [
             "What is the color of the dog?",
             "What is on the table?"
