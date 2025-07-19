@@ -77,13 +77,11 @@ def eval_model(args):
             conv.append_message(conv.roles[1], None)
             prompt = conv.get_prompt()
 
-            input_ids_new = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt").unsqueeze(0).cuda()
-            # print(f"input_ids_new: {input_ids_new}, {input_ids_new.shape}")
-            if input_ids_old is None:
-                input_ids = input_ids_new
-            else:
-                input_ids = torch.cat((input_ids_old, input_ids_new), dim=1)
-            # print(f"input_ids: {input_ids}, {input_ids.shape}")
+            input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt").unsqueeze(0).cuda()
+            # print(f"input_ids 1: {input_ids}, {input_ids.shape}")
+            if input_ids_old is not None:
+                input_ids = torch.cat((input_ids_old, input_ids), dim=1)
+            # print(f"input_ids 2: {input_ids}, {input_ids.shape}")
 
             with torch.inference_mode():
                 output_ids = model.generate(
